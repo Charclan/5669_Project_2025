@@ -9,76 +9,103 @@
 #include <geometry_msgs/WrenchStamped.h>
 #include "message/LowlevelState.h"
 
-
-
 #include "common/unitreeRobot.h"
 
-namespace ucf {
-/// @brief Provides functionality for calculating joint trajectories from desired twist
-/// and current states. Provides several different gaits as options to execute.
-class BodyController {
-public:
-  enum class Gait { kPassive = 0, kStand, kWalk, kTrot, kCanter, kGallop };
+#include <ros/ros.h>
+#include <mutex>
 
-  struct PositionVelocity {
-    nav_msgs::Path swingProfile;
-    std::vector<geometry_msgs::Twist> velocityProfile;
+namespace ucf
+{
+  /// @brief Provides functionality for calculating joint trajectories from desired twist
+  /// and current states. Provides several different gaits as options to execute.
+  class BodyController
+  {
+  public:
+    enum class Gait
+    {
+      kPassive = 0,
+      kStand,
+      kWalk,
+      kTrot,
+      kCanter,
+      kGallop
+    };
+
+    struct PositionVelocity
+    {
+      nav_msgs::Path swingProfile;
+      std::vector<geometry_msgs::Twist> velocityProfile;
+    };
+
+    BodyController(QuadrupedRobot &robotModel, Gait gait, nav_msgs::Path swingProfile,
+                   std::vector<geometry_msgs::Twist> velocityProfile = {}, double loop_rate = 10.0);
+
+    /// @brief Calculate joint trajectory from current joint state and twist command
+    /// @param twist Desired velocities
+    /// @param jointState Current joint states
+    /// @return Joint trajectories for 12 joints
+    trajectory_msgs::JointTrajectory getJointTrajectory(const geometry_msgs::Twist &twist,
+                                                        const sensor_msgs::JointState &jointState,
+                                                        const geometry_msgs::WrenchStamped footForce[4],
+                                                        LowlevelState &lowState);
+
+    /// @brief Generate a trajectory to move to standing position from current position
+    ///        using linear interpolation
+    /// @param targetPos Desired joint positions for standing
+    /// @param jointState
+    /// @return Joint trajectory
+    trajectory_msgs::JointTrajectory getStandTrajectory(const std::vector<double> &targetPos, const sensor_msgs::JointState &jointState);
+
+    /// @brief Add an empty trajectory message for "gait" 0 to clear commands
+    /// @return minimal trajectory message
+    trajectory_msgs::JointTrajectory getEmptyTrajectory();
+
+  protected:
+    /// @brief Get timestamped foot positions for each leg
+    /// @param twist Current velocity
+    /// @param jointState Current joint state
+    /// @return Array of 4 leg timestamped paths
+    std::array<PositionVelocity, 4> getFoot(const geometry_msgs::Twist &twist, const sensor_msgs::JointState &jointState, const geometry_msgs::WrenchStamped footForce[4]);
+
+    // some gaits have faster swing phases vs contact phases. This scales them
+    double scalePhase(double phase);
+
+    /// @brief Determine which phase each foot is in based on current phase, desired gait, and commanded angle
+    /// @param phase Current overall "baseline" phase
+    /// @param gait Desired gait
+    /// @param comAngle Commanded angle
+    /// @return Phase of each foot
+    std::array<double, 4> phaseStateMachine(double phase, BodyController::Gait gait, geometry_msgs::Vector3 comAngle, const geometry_msgs::WrenchStamped footForce[4]);
+
+    void footWrenchCallback(const geometry_msgs::WrenchStamped::ConstPtr &msg, int leg);
+    double getMeasuredFz(int leg, bool use_filtered = true);
+
+  private:
+    QuadrupedRobot &robotModel_;
+    Gait gait_;
+    nav_msgs::Path swingProfile_;
+    std::vector<geometry_msgs::Twist> velocityProfile_;
+    double currentPhase_;
+    int legId;
+    std::array<double, 4> left_to_go_x;
+    std::array<double, 4> footPhase_;
+    double loop_rate_;
+
+    // Impedance/force control parameters
+    double Kp_ = 110.0;
+    double Kd_ = 18.0;
+    double Kf_ = 1.0;
+    double desiredContactForce_ = 60.0;
+    double contactThreshold_ = 10.0;
+    double torqueLimit_ = 60.0;
+
+    // foot wrench subscriptions
+    std::array<ros::Subscriber, 4> footWrenchSubs_;
+    std::array<geometry_msgs::WrenchStamped, 4> footWrenches_;
+    std::array<double, 4> footWrenchFilteredZ_{{0.0, 0.0, 0.0, 0.0}};
+    std::mutex footWrenchMutex_;
+    double footWrenchAlpha_ = 0.2;
   };
-
-  BodyController(QuadrupedRobot &robotModel, Gait gait, nav_msgs::Path swingProfile,
-                 std::vector<geometry_msgs::Twist> velocityProfile = {}, double loop_rate = 10.0);
-
-  /// @brief Calculate joint trajectory from current joint state and twist command
-  /// @param twist Desired velocities
-  /// @param jointState Current joint states
-  /// @return Joint trajectories for 12 joints
-  trajectory_msgs::JointTrajectory getJointTrajectory(const geometry_msgs::Twist &twist,
-                                                      const sensor_msgs::JointState &jointState,
-                                                      const geometry_msgs::WrenchStamped footForce[4],
-                                                      LowlevelState &lowState);
-
-  /// @brief Generate a trajectory to move to standing position from current position
-  ///        using linear interpolation
-  /// @param targetPos Desired joint positions for standing
-  /// @param jointState
-  /// @return Joint trajectory
-  trajectory_msgs::JointTrajectory getStandTrajectory(const std::vector<double> &targetPos, const sensor_msgs::JointState &jointState);
-
-  /// @brief Add an empty trajectory message for "gait" 0 to clear commands
-  /// @return minimal trajectory message
-  trajectory_msgs::JointTrajectory getEmptyTrajectory();
-
-protected:
-  /// @brief Get timestamped foot positions for each leg
-  /// @param twist Current velocity
-  /// @param jointState Current joint state
-  /// @return Array of 4 leg timestamped paths
-  std::array<PositionVelocity, 4> getFoot(const geometry_msgs::Twist &twist, const sensor_msgs::JointState &jointState, const geometry_msgs::WrenchStamped footForce[4]);
-
-  // some gaits have faster swing phases vs contact phases. This scales them
-  double scalePhase(double phase);
-
-  /// @brief Determine which phase each foot is in based on current phase, desired gait, and commanded angle
-  /// @param phase Current overall "baseline" phase
-  /// @param gait Desired gait
-  /// @param comAngle Commanded angle
-  /// @return Phase of each foot
-  std::array<double, 4> phaseStateMachine(double phase, BodyController::Gait gait, geometry_msgs::Vector3 comAngle, const geometry_msgs::WrenchStamped footForce[4]);
-
-private:
-  QuadrupedRobot &robotModel_;
-  Gait gait_;
-  nav_msgs::Path swingProfile_;
-  std::vector<geometry_msgs::Twist> velocityProfile_;
-  double currentPhase_;
-  int legId;
-  std::array<double, 4> left_to_go_x;
-
-
-  std::array<double, 4> footPhase_;
-
-  double loop_rate_;
-};
 } // namespace ucf
 
 #endif // __BODY_CONTROLLER_H__

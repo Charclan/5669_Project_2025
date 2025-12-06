@@ -19,7 +19,6 @@ hardware_interface:
     control_mode: 0 # 0: sim, 1: real
     power_protect: 1 # 1-10. Somehow protects power based on commands
     Kp:
-<<<<<<< Updated upstream
         - 10.0 # FL_hip_joint
         - 10.0 # FL_thigh_joint
         - 10.0 # FL_calf_joint
@@ -32,20 +31,6 @@ hardware_interface:
         - 10.0 # RR_hip_joint
         - 10.0 # RR_thigh_joint
         - 10.0 # RR_calf_joint
-=======
-        - 50 # FL_hip_joint
-        - 50 # FL_thigh_joint
-        - 50 # FL_calf_joint
-        - 50 # FR_hip_joint
-        - 50 # FR_thigh_joint
-        - 50 # FR_calf_joint
-        - 50 # RL_hip_joint
-        - 50 # RL_thigh_joint
-        - 50 # RL_calf_joint
-        - 50 # RR_hip_joint
-        - 50 # RR_thigh_joint
-        - 50 # RR_calf_joint
->>>>>>> Stashed changes
     Kd:
         - 10.0 # FL_hip_joint
         - 10.0 # FL_thigh_joint
@@ -130,6 +115,7 @@ RR_calf_controller:
     joint: RR_calf_joint
     pid: {p: 300.0, i: 0.0, d: 8.0}
 
+# TODO: If the hardware supports effort mode, then change type to: effort_controllers/JointTrajectoryController
 traj_controller:
     type: velocity_controllers/JointTrajectoryController
     joints:
@@ -147,7 +133,6 @@ traj_controller:
         - RL_calf_joint
         
     gains:
-<<<<<<< Updated upstream
         FL_hip_joint: {p: 10.0, d: 0.1, i: 5, i_clamp: 1}
         FL_thigh_joint: {p: 10.0, d: 0.1, i: 5, i_clamp: 1}
         FL_calf_joint: {p: 10.0, d: 0.1, i: 5, i_clamp: 1}
@@ -160,20 +145,6 @@ traj_controller:
         RR_hip_joint: {p: 10.0, d: 0.1, i: 5, i_clamp: 1}
         RR_thigh_joint: {p: 10.0, d: 0.1, i: 5, i_clamp: 1}
         RR_calf_joint: {p: 10.0, d: 0.1, i: 5, i_clamp: 1}
-=======
-        FR_hip_joint: {p: 5.0, d: 0, i: 0, i_clamp: 1}
-        FR_thigh_joint: {p: 5.0, d: 0, i: 0, i_clamp: 1}
-        FR_calf_joint: {p: 5.0, d: 0, i: 0, i_clamp: 1}
-        FL_hip_joint: {p: 0, d: 0, i: 0, i_clamp: 1}
-        FL_thigh_joint: {p: 0, d: 0, i: 0, i_clamp: 1}
-        FL_calf_joint: {p: 0, d: 0, i: 0, i_clamp: 1}
-        RR_hip_joint: {p: 0, d: 0, i: 0, i_clamp: 1}
-        RR_thigh_joint: {p: 0, d: 0, i: 0, i_clamp: 1}
-        RR_calf_joint: {p: 0, d: 0, i: 0, i_clamp: 1}
-        RL_hip_joint: {p: 0, d: 0, i: 0, i_clamp: 1}
-        RL_thigh_joint: {p: 0, d: 0, i: 0, i_clamp: 1}
-        RL_calf_joint: {p: 0, d: 0, i: 0, i_clamp: 1}
->>>>>>> Stashed changes
 
     velocity_ff:
         FR_hip_joint: 0

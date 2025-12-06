@@ -1,3 +1,11 @@
 stand_joint: [0.0, 0.67, -1.3, 0.0, 0.67, -1.3, 0.0, 0.67, -1.3, 0.0, 0.67, -1.3]
 trajectory_publish_rate: 20.0
 profile_height_offset: 0.05
+
+# impedance/force control params
+imp_Kp: 110.0
+imp_Kd: 18.0
+imp_Kf: 0.8
+imp_desired_force: 30.0
+imp_contact_threshold: 5.0
+imp_torque_limit: 30.0
