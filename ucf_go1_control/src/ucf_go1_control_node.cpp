@@ -19,20 +19,48 @@ ros::Subscriber sub_FL;
 ros::Subscriber sub_FR;
 ros::Subscriber sub_RL;
 ros::Subscriber sub_RR;
+ros::Publisher pub_FL_force, pub_FR_force, pub_RL_force, pub_RR_force;
+
 
 // SIM callbacks (Gazebo contact sensors)
 void FLfootCallback(const geometry_msgs::WrenchStamped::ConstPtr &msg) {
-  footForce[0].wrench.force.z = msg->wrench.force.z;  // FL
+  footForce[0] = *msg;
+  footForce[0].header.stamp = ros::Time::now();
+
+  // Only publish if the publisher has been advertised
+  if (pub_FL_force) {
+    pub_FL_force.publish(footForce[0]);
+  }
 }
+
 void FRfootCallback(const geometry_msgs::WrenchStamped::ConstPtr &msg) {
-  footForce[1].wrench.force.z = msg->wrench.force.z;  // FR
+  footForce[1] = *msg;
+  footForce[1].header.stamp = ros::Time::now();
+
+  if (pub_FR_force) {
+    pub_FR_force.publish(footForce[1]);
+  }
 }
+
 void RLfootCallback(const geometry_msgs::WrenchStamped::ConstPtr &msg) {
-  footForce[2].wrench.force.z = msg->wrench.force.z;  // RL
+  footForce[2] = *msg;
+  footForce[2].header.stamp = ros::Time::now();
+
+  if (pub_RL_force) {
+    pub_RL_force.publish(footForce[2]);
+  }
 }
+
 void RRfootCallback(const geometry_msgs::WrenchStamped::ConstPtr &msg) {
-  footForce[3].wrench.force.z = msg->wrench.force.z;  // RR
+  footForce[3] = *msg;
+  footForce[3].header.stamp = ros::Time::now();
+
+  if (pub_RR_force) {
+    pub_RR_force.publish(footForce[3]);
+  }
 }
+
+
 
 
 // HARDWARE callback (real robot low state)
@@ -103,9 +131,15 @@ makeProfileFromCsv(const std::vector<std::vector<std::string>> &parsedCsv) {
   return {path, vel};
 }
 
+
 int main(int argc, char **argv) {
   ros::init(argc, argv, "ucf_go1_control");
   ros::NodeHandle nh;
+
+  pub_FL_force = nh.advertise<geometry_msgs::WrenchStamped>("fl_foot_force", 1);
+  pub_FR_force = nh.advertise<geometry_msgs::WrenchStamped>("fr_foot_force", 1);
+  pub_RL_force = nh.advertise<geometry_msgs::WrenchStamped>("rl_foot_force", 1);
+  pub_RR_force = nh.advertise<geometry_msgs::WrenchStamped>("rr_foot_force", 1);
 
   // CHANGE BELOW TO FALSE WHEN USING THE REAL ROBOT IN ORDER TO GET THE ACTUAL FOOT FORCE DATA
   bool use_sim = true;
