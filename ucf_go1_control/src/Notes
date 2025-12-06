@@ -37,7 +37,7 @@ And I didn't see either set when running the basic controller setup we've been d
 --- Cameron's new notes ---
 This information may not be accurate, but this is what I have found so far.
 
-LowState is defined in unitree_legged_sdk/include/unitree_legged_sdk/comm.h and in it exists both footForce and footForceEst. It says that footForceEst "reserve，typically zero", so we probably want to footForce instead. This can be toggled in go1_hw_interface.h by changing use_footForceEst_
+I found a definition of LowState in unitree_legged_sdk/include/unitree_legged_sdk/comm.h and in it exists both footForce and footForceEst. It says that footForceEst "reserve，typically zero", so we probably want to footForce instead. This can be toggled in go1_hw_interface.h by changing use_footForceEst_
 
 How to test latest changes (of getting foot force data):
 1. start hardware node
