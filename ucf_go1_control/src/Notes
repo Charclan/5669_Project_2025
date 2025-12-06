@@ -26,3 +26,8 @@ Force was never explictly used in any file, but they exist in the ones that forc
 
 
 Also, using footForceEst because it supposedly outputs the force value as an estimated force in Newtons, so we don't have to calibrate the sensors or deal with raw data
+
+Also, I'm unsure because I can't recieve any data from it virtually, but I've only been able to see the existence of the low_state and low_cmd nodes when 
+doing roslaunch unitree_legged_real real.launch, with the crtl level parameter set to lowlevel
+Otherwise, it appears to run it only at high level, which isn't what we need
+And I didn't see either set when running the basic controller setup we've been doing for sims

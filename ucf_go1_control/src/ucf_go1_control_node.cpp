@@ -8,7 +8,7 @@
 #include <iostream>
 #include <memory>
 #include <ros/package.h>
-// #include <unitree_legged_msgs/LowState.h>
+#include <unitree_legged_msgs/LowState.h>
 #include "ucf_go1_control/body_controller.h"
 #include "ucf_go1_control/csv_loader.h"
 #include <geometry_msgs/WrenchStamped.h>
