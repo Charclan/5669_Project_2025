@@ -1,0 +1,194 @@
+generic_hw_control_loop:
+    loop_hz: 500
+    cycle_time_error_threshold: 0.01
+
+hardware_interface:
+    joints:
+        - FL_hip_joint
+        - FL_thigh_joint
+        - FL_calf_joint
+        - FR_hip_joint
+        - FR_thigh_joint
+        - FR_calf_joint
+        - RL_hip_joint
+        - RL_thigh_joint
+        - RL_calf_joint
+        - RR_hip_joint
+        - RR_thigh_joint
+        - RR_calf_joint
+    control_mode: 0 # 0: sim, 1: real
+    power_protect: 1 # 1-10. Somehow protects power based on commands
+    Kp:
+<<<<<<< Updated upstream
+        - 10.0 # FL_hip_joint
+        - 10.0 # FL_thigh_joint
+        - 10.0 # FL_calf_joint
+        - 10.0 # FR_hip_joint
+        - 10.0 # FR_thigh_joint
+        - 10.0 # FR_calf_joint
+        - 10.0 # RL_hip_joint
+        - 10.0 # RL_thigh_joint
+        - 10.0 # RL_calf_joint
+        - 10.0 # RR_hip_joint
+        - 10.0 # RR_thigh_joint
+        - 10.0 # RR_calf_joint
+=======
+        - 50 # FL_hip_joint
+        - 50 # FL_thigh_joint
+        - 50 # FL_calf_joint
+        - 50 # FR_hip_joint
+        - 50 # FR_thigh_joint
+        - 50 # FR_calf_joint
+        - 50 # RL_hip_joint
+        - 50 # RL_thigh_joint
+        - 50 # RL_calf_joint
+        - 50 # RR_hip_joint
+        - 50 # RR_thigh_joint
+        - 50 # RR_calf_joint
+>>>>>>> Stashed changes
+    Kd:
+        - 10.0 # FL_hip_joint
+        - 10.0 # FL_thigh_joint
+        - 10.0 # FL_calf_joint
+        - 10.0 # FR_hip_joint
+        - 10.0 # FR_thigh_joint
+        - 10.0 # FR_calf_joint
+        - 10.0 # RL_hip_joint
+        - 10.0 # RL_thigh_joint
+        - 10.0 # RL_calf_joint
+        - 10.0 # RR_hip_joint
+        - 10.0 # RR_thigh_joint
+        - 10.0 # RR_calf_joint
+
+# Publish all joint states -----------------------------------
+joint_state_controller:
+    type: joint_state_controller/JointStateController
+    publish_rate: 1000  
+
+# FL Controllers ---------------------------------------
+FL_hip_controller:
+    type: unitree_legged_control/UnitreeJointController
+    joint: FL_hip_joint
+    pid: {p: 100.0, i: 0.0, d: 5.0}
+
+FL_thigh_controller:
+    type: unitree_legged_control/UnitreeJointController
+    joint: FL_thigh_joint
+    pid: {p: 300.0, i: 0.0, d: 8.0}
+
+FL_calf_controller:
+    type: unitree_legged_control/UnitreeJointController
+    joint: FL_calf_joint
+    pid: {p: 300.0, i: 0.0, d: 8.0}
+
+# FR Controllers ---------------------------------------
+FR_hip_controller:
+    type: unitree_legged_control/UnitreeJointController
+    joint: FR_hip_joint
+    pid: {p: 100.0, i: 0.0, d: 5.0}
+
+FR_thigh_controller:
+    type: unitree_legged_control/UnitreeJointController
+    joint: FR_thigh_joint
+    pid: {p: 300.0, i: 0.0, d: 8.0}
+
+FR_calf_controller:
+    type: unitree_legged_control/UnitreeJointController
+    joint: FR_calf_joint
+    pid: {p: 300.0, i: 0.0, d: 8.0}
+
+# RL Controllers ---------------------------------------
+RL_hip_controller:
+    type: unitree_legged_control/UnitreeJointController
+    joint: RL_hip_joint
+    pid: {p: 100.0, i: 0.0, d: 5.0}
+
+RL_thigh_controller:
+    type: unitree_legged_control/UnitreeJointController
+    joint: RL_thigh_joint
+    pid: {p: 300.0, i: 0.0, d: 8.0}
+
+RL_calf_controller:
+    type: unitree_legged_control/UnitreeJointController
+    joint: RL_calf_joint
+    pid: {p: 300.0, i: 0.0, d: 8.0}
+
+# RR Controllers ---------------------------------------
+RR_hip_controller:
+    type: unitree_legged_control/UnitreeJointController
+    joint: RR_hip_joint
+    pid: {p: 100.0, i: 0.0, d: 5.0}
+
+RR_thigh_controller:
+    type: unitree_legged_control/UnitreeJointController
+    joint: RR_thigh_joint
+    pid: {p: 300.0, i: 0.0, d: 8.0}
+
+
+RR_calf_controller:
+    type: unitree_legged_control/UnitreeJointController
+    joint: RR_calf_joint
+    pid: {p: 300.0, i: 0.0, d: 8.0}
+
+traj_controller:
+    type: velocity_controllers/JointTrajectoryController
+    joints:
+        - FR_hip_joint
+        - FR_thigh_joint
+        - FR_calf_joint
+        - FL_hip_joint
+        - FL_thigh_joint
+        - FL_calf_joint
+        - RR_hip_joint
+        - RR_thigh_joint
+        - RR_calf_joint
+        - RL_hip_joint
+        - RL_thigh_joint
+        - RL_calf_joint
+        
+    gains:
+<<<<<<< Updated upstream
+        FL_hip_joint: {p: 10.0, d: 0.1, i: 5, i_clamp: 1}
+        FL_thigh_joint: {p: 10.0, d: 0.1, i: 5, i_clamp: 1}
+        FL_calf_joint: {p: 10.0, d: 0.1, i: 5, i_clamp: 1}
+        FR_hip_joint: {p: 10.0, d: 0.1, i: 5, i_clamp: 1}
+        FR_thigh_joint: {p: 10.0, d: 0.1, i: 5, i_clamp: 1}
+        FR_calf_joint: {p: 10.0, d: 0.1, i: 5, i_clamp: 1}
+        RL_hip_joint: {p: 10.0, d: 0.1, i: 5, i_clamp: 1}
+        RL_thigh_joint: {p: 10.0, d: 0.1, i: 5, i_clamp: 1}
+        RL_calf_joint: {p: 10.0, d: 0.1, i: 5, i_clamp: 1}
+        RR_hip_joint: {p: 10.0, d: 0.1, i: 5, i_clamp: 1}
+        RR_thigh_joint: {p: 10.0, d: 0.1, i: 5, i_clamp: 1}
+        RR_calf_joint: {p: 10.0, d: 0.1, i: 5, i_clamp: 1}
+=======
+        FR_hip_joint: {p: 5.0, d: 0, i: 0, i_clamp: 1}
+        FR_thigh_joint: {p: 5.0, d: 0, i: 0, i_clamp: 1}
+        FR_calf_joint: {p: 5.0, d: 0, i: 0, i_clamp: 1}
+        FL_hip_joint: {p: 0, d: 0, i: 0, i_clamp: 1}
+        FL_thigh_joint: {p: 0, d: 0, i: 0, i_clamp: 1}
+        FL_calf_joint: {p: 0, d: 0, i: 0, i_clamp: 1}
+        RR_hip_joint: {p: 0, d: 0, i: 0, i_clamp: 1}
+        RR_thigh_joint: {p: 0, d: 0, i: 0, i_clamp: 1}
+        RR_calf_joint: {p: 0, d: 0, i: 0, i_clamp: 1}
+        RL_hip_joint: {p: 0, d: 0, i: 0, i_clamp: 1}
+        RL_thigh_joint: {p: 0, d: 0, i: 0, i_clamp: 1}
+        RL_calf_joint: {p: 0, d: 0, i: 0, i_clamp: 1}
+>>>>>>> Stashed changes
+
+    velocity_ff:
+        FR_hip_joint: 0
+        FR_thigh_joint: 0
+        FR_calf_joint: 0
+        FL_hip_joint: 0
+        FL_thigh_joint: 0
+        FL_calf_joint: 0
+        RR_hip_joint: 0
+        RR_thigh_joint: 0
+        RR_calf_joint: 0
+        RL_hip_joint: 0
+        RL_thigh_joint: 0
+        RL_calf_joint: 0
+        
+
+    stop_trajectory_duration: 0.5
+    state_publish_rate:  50

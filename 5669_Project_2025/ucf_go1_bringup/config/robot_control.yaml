@@ -1,0 +1,132 @@
+go1_gazebo:
+    # Publish all joint states -----------------------------------
+    joint_state_controller:
+        type: joint_state_controller/JointStateController
+        publish_rate: 1000  
+
+    # FL Controllers ---------------------------------------
+    FL_hip_controller:
+        type: unitree_legged_control/UnitreeJointController
+        joint: FL_hip_joint
+        pid: {p: 100.0, i: 0.0, d: 5.0}
+
+    FL_thigh_controller:
+        type: unitree_legged_control/UnitreeJointController
+        joint: FL_thigh_joint
+        pid: {p: 300.0, i: 0.0, d: 8.0}
+
+    FL_calf_controller:
+        type: unitree_legged_control/UnitreeJointController
+        joint: FL_calf_joint
+        pid: {p: 300.0, i: 0.0, d: 8.0}
+
+    # FR Controllers ---------------------------------------
+    FR_hip_controller:
+        type: unitree_legged_control/UnitreeJointController
+        joint: FR_hip_joint
+        pid: {p: 100.0, i: 0.0, d: 5.0}
+
+    FR_thigh_controller:
+        type: unitree_legged_control/UnitreeJointController
+        joint: FR_thigh_joint
+        pid: {p: 300.0, i: 0.0, d: 8.0}
+
+    FR_calf_controller:
+        type: unitree_legged_control/UnitreeJointController
+        joint: FR_calf_joint
+        pid: {p: 300.0, i: 0.0, d: 8.0}
+
+    # RL Controllers ---------------------------------------
+    RL_hip_controller:
+        type: unitree_legged_control/UnitreeJointController
+        joint: RL_hip_joint
+        pid: {p: 100.0, i: 0.0, d: 5.0}
+
+    RL_thigh_controller:
+        type: unitree_legged_control/UnitreeJointController
+        joint: RL_thigh_joint
+        pid: {p: 300.0, i: 0.0, d: 8.0}
+
+    RL_calf_controller:
+        type: unitree_legged_control/UnitreeJointController
+        joint: RL_calf_joint
+        pid: {p: 300.0, i: 0.0, d: 8.0}
+
+    # RR Controllers ---------------------------------------
+    RR_hip_controller:
+        type: unitree_legged_control/UnitreeJointController
+        joint: RR_hip_joint
+        pid: {p: 100.0, i: 0.0, d: 5.0}
+
+    RR_thigh_controller:
+        type: unitree_legged_control/UnitreeJointController
+        joint: RR_thigh_joint
+        pid: {p: 300.0, i: 0.0, d: 8.0}
+
+
+    RR_calf_controller:
+        type: unitree_legged_control/UnitreeJointController
+        joint: RR_calf_joint
+        pid: {p: 300.0, i: 0.0, d: 8.0}
+
+    traj_controller:
+        type: effort_controllers/JointTrajectoryController
+        joints:
+            - FL_hip_joint
+            - FL_thigh_joint
+            - FL_calf_joint
+            - FR_hip_joint
+            - FR_thigh_joint
+            - FR_calf_joint
+            - RL_hip_joint
+            - RL_thigh_joint
+            - RL_calf_joint
+            - RR_hip_joint
+            - RR_thigh_joint
+            - RR_calf_joint
+            
+        gains:
+            FL_hip_joint: {p: 200, d: 1, i: 5, i_clamp: 1}
+            FL_thigh_joint: {p: 200, d: 1, i: 5, i_clamp: 1}
+            FL_calf_joint: {p: 200, d: 1, i: 5, i_clamp: 1}
+            FR_hip_joint: {p: 200, d: 1, i: 5, i_clamp: 1}
+            FR_thigh_joint: {p: 200, d: 1, i: 5, i_clamp: 1}
+            FR_calf_joint: {p: 200, d: 1, i: 5, i_clamp: 1}
+            RL_hip_joint: {p: 200, d: 1, i: 5, i_clamp: 1}
+            RL_thigh_joint: {p: 200, d: 1, i: 5, i_clamp: 1}
+            RL_calf_joint: {p: 200, d: 1, i: 5, i_clamp: 1}
+            RR_hip_joint: {p: 200, d: 1, i: 5, i_clamp: 1}
+            RR_thigh_joint: {p: 200, d: 1, i: 5, i_clamp: 1}
+            RR_calf_joint: {p: 200, d: 1, i: 5, i_clamp: 1}
+
+        velocity_ff:
+            FR_calf_joint: 1.0
+            FR_thigh_joint: 1.0
+            FR_hip_joint: 1.0
+            FL_calf_joint: 1.0
+            FL_thigh_joint: 1.0
+            FL_hip_joint: 1.0
+            RR_calf_joint: 1.0
+            RR_thigh_joint: 1.0
+            RR_hip_joint: 1.0
+            RL_calf_joint: 1.0
+            RL_thigh_joint: 1.0
+            RL_hip_joint: 1.0
+        constraints:
+            goal_time: 0.6
+            stopped_velocity_tolerance: 0.02
+            FR_calf_joint: {trajectory: 0.05, goal: 0.02}
+            FR_thigh_joint: {trajectory: 0.05, goal: 0.02}
+            FR_hip_joint: {trajectory: 0.05, goal: 0.02}
+            FL_calf_joint: {trajectory: 0.05, goal: 0.02}
+            FL_thigh_joint: {trajectory: 0.05, goal: 0.02}
+            FL_hip_joint: {trajectory: 0.05, goal: 0.02}
+            RR_calf_joint: {trajectory: 0.05, goal: 0.02}
+            RR_thigh_joint: {trajectory: 0.05, goal: 0.02}
+            RR_hip_joint: {trajectory: 0.05, goal: 0.02}
+            RL_calf_joint: {trajectory: 0.05, goal: 0.02}
+            RL_thigh_joint: {trajectory: 0.05, goal: 0.02}
+            RL_hip_joint: {trajectory: 0.05, goal: 0.02}
+
+        stop_trajectory_duration: 0.5
+        state_publish_rate:  25
