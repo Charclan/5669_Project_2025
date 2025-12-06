@@ -15,12 +15,22 @@
 #include "message/LowlevelState.h"
 
 
+////////////////////////////////////////////////
+// Switching between the simulation version and real version of force 
+// data occurs in this file in the main function. If you use the wrong version
+// the robot won't do anything that requires the use of forces in computation
+////////////////////////////////////////////////
+
 geometry_msgs::WrenchStamped footForce[4];
 
+//Sim subscriber setup
 ros::Subscriber sub_FL;
 ros::Subscriber sub_FR;
 ros::Subscriber sub_RL;
 ros::Subscriber sub_RR;
+
+//Real Data subscriber setup
+ros::Subscriber sub_lowstate;
 
 // SIM callbacks (Gazebo contact sensors)
 void FLfootCallback(const geometry_msgs::WrenchStamped::ConstPtr &msg) {
@@ -37,13 +47,30 @@ void RRfootCallback(const geometry_msgs::WrenchStamped::ConstPtr &msg) {
 }
 
 
+
 // HARDWARE callback (real robot low state)
-//void lowStateCallback(const unitree_legged_msgs::LowState &msg) {
-  // use foot_force_est (estimated foot forces) – better for contact
-//  for (int i = 0; i < 4; ++i) {
-//    footForce[i].wrench.force.z = msg.foot_force_est[i];
-//  }
-//}
+//This is pulling what I think is neccesary from the LowState.msg file
+//but since it outputs a vector of all 4 values, I don't think if can be split into multiple
+//Callback functions like with the sim version
+// Also using footForceEst instead of footForce cause it'll output a actual estimated force value
+// not a raw sensor data we need to parse through
+
+void realCallback(const unitree_legged_msgs::LowState::ConstPtr& msg)
+{
+   footForce[0].wrench.force.z = msg->footForceEst[0] // FL Leg Data
+   footForce[1].wrench.force.z = msg->footForceEst[1] // FR Leg Data
+   footForce[2].wrench.force.z = msg->footForceEst[2] // RL Leg Data
+   footForce[3].wrench.force.z = msg->footForceEst[3] // RR Leg Data
+
+   //This is here to make the real data of the robot mimic the structure that the sim data is supposedly outputing
+   //Shouldn't change anything, since geometry_msgs should parse it out when unnecesary if i understand it right
+   ros::Time t = ros::Time::now()
+   for(int i=0; i<4; i++){
+      footForce[i].header.stamp=t;
+      footForce[i].header.frame_id="base";
+   }
+}
+
 
 // Make a simple cycloidal profile for testing purposes
 // Phase should be [0,1). A complete Cycloid profile
@@ -126,7 +153,7 @@ int main(int argc, char **argv) {
   ros::NodeHandle nh;
 
   // CHANGE BELOW TO FALSE WHEN USING THE REAL ROBOT IN ORDER TO GET THE ACTUAL FOOT FORCE DATA
-  bool use_sim = true;
+  bool use_sim = false;
   if (nh.hasParam("use_sim")) {
   nh.getParam("use_sim", use_sim);
   }
@@ -200,7 +227,7 @@ int main(int argc, char **argv) {
       });
 
 
-      // Foot force subscribers
+      
       // Foot force subscribers
       if (use_sim) {
         sub_FL = nh.subscribe<geometry_msgs::WrenchStamped>(
@@ -215,6 +242,7 @@ int main(int argc, char **argv) {
         // hardware path (when unitree_legged_msgs is available)
         // sub_low_state = nh.subscribe<unitree_legged_msgs::LowState>(
         //     "/low_state", 1, &lowStateCallback);
+        sub_lowstate = nh.subscribe("/low_state",1,realCallback)        
       }
 
 
