@@ -12,8 +12,6 @@
 #include "ucf_go1_control/body_controller.h"
 #include "ucf_go1_control/csv_loader.h"
 #include <geometry_msgs/WrenchStamped.h>
-#include "message/LowlevelState.h"
-
 
 geometry_msgs::WrenchStamped footForce[4];
 
@@ -105,22 +103,6 @@ makeProfileFromCsv(const std::vector<std::vector<std::string>> &parsedCsv) {
   return {path, vel};
 }
 
-
-LowlevelState jointStateToLowlevelState(const sensor_msgs::JointState& jointMsg) {
-  LowlevelState state;
-  for (size_t i = 0; i < jointMsg.name.size(); ++i) {
-    if (i < 12) {
-      state.motorState[i].q = jointMsg.position[i];
-      state.motorState[i].dq = jointMsg.velocity[i];
-    }
-  }
-  return state;
-}
-
-
-
-
-
 int main(int argc, char **argv) {
   ros::init(argc, argv, "ucf_go1_control");
   ros::NodeHandle nh;
@@ -156,7 +138,7 @@ int main(int argc, char **argv) {
     nh.getParam("stand_joint", stand_joint);
   }
 
-  double trajectory_publish_rate = 50.0;
+  double trajectory_publish_rate = 10.0;
   if (nh.hasParam("trajectory_publish_rate")) {
     nh.getParam("trajectory_publish_rate", trajectory_publish_rate);
   }
@@ -231,9 +213,7 @@ int main(int argc, char **argv) {
   while (ros::ok()) {
     if (gait == ucf::BodyController::Gait::kStand) {
       if (receivedState && !oneShot) {
-        LowlevelState dummyLowState;  // fill if needed in future
-        auto jointTraj = bodyController->getJointTrajectory(currentTwist, currentState, footForce, dummyLowState);
-
+        auto jointTraj = bodyController->getStandTrajectory(stand_joint, currentState);
         pub_traj.publish(jointTraj);
         oneShot = true;
       }
@@ -244,9 +224,7 @@ int main(int argc, char **argv) {
         oneShot = true;
       }
     } else {
-      LowlevelState lowState = jointStateToLowlevelState(currentState);
-      auto jointTraj = bodyController->getJointTrajectory(currentTwist, currentState, footForce, lowState);
-
+      auto jointTraj = bodyController->getJointTrajectory(currentTwist, currentState, footForce);
       pub_traj.publish(jointTraj);
     }
     ros::spinOnce();

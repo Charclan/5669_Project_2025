@@ -7,8 +7,6 @@
 #include "trajectory_msgs/JointTrajectory.h"
 #include <array>
 #include <geometry_msgs/WrenchStamped.h>
-#include "message/LowlevelState.h"
-
 
 
 #include "common/unitreeRobot.h"
@@ -34,8 +32,7 @@ public:
   /// @return Joint trajectories for 12 joints
   trajectory_msgs::JointTrajectory getJointTrajectory(const geometry_msgs::Twist &twist,
                                                       const sensor_msgs::JointState &jointState,
-                                                      const geometry_msgs::WrenchStamped footForce[4],
-                                                      LowlevelState &lowState);
+                                                      const geometry_msgs::WrenchStamped footForce[4]);
 
   /// @brief Generate a trajectory to move to standing position from current position
   ///        using linear interpolation
