@@ -41,6 +41,24 @@ Go1HWInterface::Go1HWInterface(ros::NodeHandle &nh, urdf::Model *urdf_model)
     udp_.InitCmdData(cmd_);
   }
   ROS_INFO_NAMED("go1_hw_interface", "Go1HWInterface Ready.");
+
+  // Read optional foot force params so we can tune at runtime
+  rpnh.param("use_footForceEst", use_footForceEst_, use_footForceEst_);
+  rpnh.param("foot_force_scale", foot_force_scale_, foot_force_scale_);
+  rpnh.param("foot_force_offset", foot_force_offset_, foot_force_offset_);
+  rpnh.param("foot_force_sign", foot_force_sign_, foot_force_sign_);
+
+  ROS_INFO_NAMED("go1_hw_interface",
+                 "Foot force params: use_est=%d scale=%f offset=%f sign=%f",
+                 (int)use_footForceEst_, foot_force_scale_, foot_force_offset_, foot_force_sign_);
+
+  // Initialize publishers for sim-compatible topics (/visual/FL_foot_contact/the_force ...)
+  std::array<std::string, 4> leg_names = {"FL", "FR", "RL", "RR"};
+  for (int i = 0; i < 4; ++i)
+  {
+    std::string topic = "/visual/" + leg_names[i] + "_foot_contact/the_force";
+    foot_force_pubs_[i] = nh_.advertise<geometry_msgs::WrenchStamped>(topic, 1);
+  }
 }
 
 void Go1HWInterface::read(ros::Duration &elapsed_time) {
@@ -50,6 +68,31 @@ void Go1HWInterface::read(ros::Duration &elapsed_time) {
   }
   udp_.Recv();
   udp_.GetRecv(state_);
+
+  // Publish foot forces (converted & scaled) so the controller uses same topics as sim
+  std::array<double, 4> foot_forces_n;
+  for (int i = 0; i < 4; ++i)
+  {
+    // Choose which array to use. footForceEst is typically zero/unused on many units.
+    int16_t raw = use_footForceEst_ ? state_.footForceEst[i] : state_.footForce[i];
+    // Convert and scale; sign/offset params allow live calibration
+    foot_forces_n[i] = foot_force_sign_ * (foot_force_scale_ * static_cast<double>(raw) + foot_force_offset_);
+  }
+
+  // Publish each as geometry_msgs::WrenchStamped on the sim topics
+  for (int i = 0; i < 4; ++i)
+  {
+    geometry_msgs::WrenchStamped msg;
+    msg.header.stamp = ros::Time::now();
+    msg.header.frame_id = ""; // TODO: fill if we have a meaningful frame?
+    msg.wrench.force.x = 0.0;
+    msg.wrench.force.y = 0.0;
+    msg.wrench.force.z = foot_forces_n[i];
+    msg.wrench.torque.x = 0.0;
+    msg.wrench.torque.y = 0.0;
+    msg.wrench.torque.z = 0.0;
+    foot_force_pubs_[i].publish(msg);
+  }
 }
 
 void Go1HWInterface::write(ros::Duration &elapsed_time) {

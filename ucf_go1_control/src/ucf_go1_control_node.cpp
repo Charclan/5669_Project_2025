@@ -57,14 +57,14 @@ void RRfootCallback(const geometry_msgs::WrenchStamped::ConstPtr &msg) {
 
 void realCallback(const unitree_legged_msgs::LowState::ConstPtr& msg)
 {
-   footForce[0].wrench.force.z = msg->footForceEst[0] // FL Leg Data
-   footForce[1].wrench.force.z = msg->footForceEst[1] // FR Leg Data
-   footForce[2].wrench.force.z = msg->footForceEst[2] // RL Leg Data
-   footForce[3].wrench.force.z = msg->footForceEst[3] // RR Leg Data
+   footForce[0].wrench.force.z = msg->footForceEst[0]; // FL Leg Data
+   footForce[1].wrench.force.z = msg->footForceEst[1]; // FR Leg Data
+   footForce[2].wrench.force.z = msg->footForceEst[2]; // RL Leg Data
+   footForce[3].wrench.force.z = msg->footForceEst[3]; // RR Leg Data
 
    //This is here to make the real data of the robot mimic the structure that the sim data is supposedly outputing
    //Shouldn't change anything, since geometry_msgs should parse it out when unnecesary if i understand it right
-   ros::Time t = ros::Time::now()
+   ros::Time t = ros::Time::now();
    for(int i=0; i<4; i++){
       footForce[i].header.stamp=t;
       footForce[i].header.frame_id="base";
@@ -242,7 +242,10 @@ int main(int argc, char **argv) {
         // hardware path (when unitree_legged_msgs is available)
         // sub_low_state = nh.subscribe<unitree_legged_msgs::LowState>(
         //     "/low_state", 1, &lowStateCallback);
-        sub_lowstate = nh.subscribe("/low_state",1,realCallback)        
+
+        // sub_lowstate = nh.subscribe("/low_state",1,realCallback);
+
+        sub_lowstate = nh.subscribe<unitree_legged_msgs::LowState>("/low_state", 1, realCallback);
       }
 
 

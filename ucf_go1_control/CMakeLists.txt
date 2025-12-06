@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   hardware_interface
   unitree_legged_sdk
   ros_control_boilerplate
+  unitree_legged_msgs
 )
 
 catkin_package()

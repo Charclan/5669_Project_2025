@@ -31,3 +31,21 @@ Also, I'm unsure because I can't recieve any data from it virtually, but I've on
 doing roslaunch unitree_legged_real real.launch, with the crtl level parameter set to lowlevel
 Otherwise, it appears to run it only at high level, which isn't what we need
 And I didn't see either set when running the basic controller setup we've been doing for sims
+
+
+
+--- Cameron's new notes ---
+This information may not be accurate, but this is what I have found so far.
+
+LowState is defined in unitree_legged_sdk/include/unitree_legged_sdk/comm.h and in it exists both footForce and footForceEst. It says that footForceEst "reserve，typically zero", so we probably want to footForce instead. This can be toggled in go1_hw_interface.h by changing use_footForceEst_
+
+How to test latest changes (of getting foot force data):
+1. start hardware node
+	- This might be the command: roslaunch ucf_go1_bringup go1_hw.launch
+
+2. list topics and confirm the publishers exist
+	- rostopic list | egrep -i '/visual/.*foot_contact/the_force' || true
+
+3. inspect a message
+	- rostopic echo -n1 /visual/FL_foot_contact/the_force # FL foot as example, can also use FR, RL, or RR
+	- there should be a wrench.force.z which should contain the raw sensor value times scale +/- offset (scale, offset, and sign can be set in go1_hw_interface.h or by setting them via rosparam)
