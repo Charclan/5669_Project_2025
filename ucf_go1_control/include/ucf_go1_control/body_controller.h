@@ -69,10 +69,43 @@ private:
   std::vector<geometry_msgs::Twist> velocityProfile_;
   double currentPhase_;
   int legId;
+  
   std::array<double, 4> left_to_go_x;
-
-
   std::array<double, 4> footPhase_;
+
+  // Compute vertical impedance torques for all 12 joints.
+  // torques_out[j] must have size 12, ordered like jointState.name.
+  void computeVerticalImpedanceTorques(
+      const sensor_msgs::JointState &jointState,
+      const geometry_msgs::WrenchStamped footForce[4],
+      std::array<double, 12> &torques_out);
+
+
+
+  
+  // --- Step 1 FSM additions ---
+  enum class LegPhase { kSwing = 0, kStance };
+
+  
+  std::array<LegPhase, 4> leg_phase_;     // current FSM phase
+  std::array<bool, 4> leg_contact_;       // raw contact flag per leg
+
+  // thresholds for contact detection (simulation values)
+  double contact_force_threshold_ = 40.0;   // N
+  double liftoff_force_threshold_ = 15.0;     // N
+
+  // --- Vertical impedance gains (for τ = J^T Fz) ---
+  // Desired vertical spring-damper behavior at the foot in stance.
+  double imp_Kz_ = 800.0;   // [N/m]  (tune later)
+  double imp_Dz_ = 40.0;    // [N·s/m] (tune later)
+
+  // Nominal stance force per leg (used if you later do force regulation).
+  double imp_Fz_ref_ = 60.0; // [N], can be tuned to average stance Fz
+  
+  // Simple force regulation gain and torque limit
+  double imp_F_gain_  = 0.2;   // dimensionless gain on (Fz_ref - Fz_meas)
+  double imp_tau_max_ = 20.0;  // [N·m] max abs joint torque (simulation safety)
+
 
   double loop_rate_;
 };

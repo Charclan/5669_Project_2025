@@ -209,7 +209,7 @@ int main(int argc, char **argv) {
 
   bool receivedState = false;
   ros::Subscriber sub_joint = nh.subscribe<sensor_msgs::JointState>(
-      "joint_state", 1, [&currentState, &receivedState](const sensor_msgs::JointState::ConstPtr &msg) {
+      "/go1_gazebo/joint_states", 1, [&currentState, &receivedState](const sensor_msgs::JointState::ConstPtr &msg) {
         ROS_INFO_THROTTLE(1, "Joint State received.");
         receivedState = true;
         currentState = *msg;

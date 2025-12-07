@@ -13,7 +13,99 @@ const int kLegRR = 3;
 BodyController::BodyController(QuadrupedRobot &robotModel, Gait gait, nav_msgs::Path swingProfile,
                                std::vector<geometry_msgs::Twist> velocityProfile, double loop_rate)
     : robotModel_(robotModel), gait_(gait), swingProfile_(swingProfile), currentPhase_(0.0),
-      velocityProfile_(velocityProfile), loop_rate_(loop_rate) {}
+      velocityProfile_(velocityProfile), loop_rate_(loop_rate) {
+
+    // --- Step 1: Initialize FSM state & contact ---
+    for (int i = 0; i < 4; ++i) {
+        leg_phase_[i] = LegPhase::kStance;   // start in stance
+        leg_contact_[i] = false;
+    }
+}
+
+void BodyController::computeVerticalImpedanceTorques(
+    const sensor_msgs::JointState &jointState,
+    const geometry_msgs::WrenchStamped footForce[4],
+    std::array<double, 12> &torques_out)
+{
+  // Start with zero torques (safe default).
+  torques_out.fill(0.0);
+
+  // --- 1) Build Vec12 q in a fixed canonical order ---
+  // This order matches trajMsg.joint_names in getJointTrajectory
+  // and the Unitree model's expected q layout.
+  static const std::array<std::string, 12> kJointOrder = {
+    "FL_hip_joint", "FL_thigh_joint", "FL_calf_joint",
+    "FR_hip_joint", "FR_thigh_joint", "FR_calf_joint",
+    "RL_hip_joint", "RL_thigh_joint", "RL_calf_joint",
+    "RR_hip_joint", "RR_thigh_joint", "RR_calf_joint"};
+
+  Vec12 q;
+  q.setZero();
+
+  bool mapping_ok = true;
+  for (int i = 0; i < 12; ++i) {
+    const auto &joint_name = kJointOrder[i];
+
+    auto it = std::find(jointState.name.begin(), jointState.name.end(), joint_name);
+    if (it == jointState.name.end()) {
+      ROS_ERROR_THROTTLE(1.0,
+                         "computeVerticalImpedanceTorques: joint '%s' not found in JointState.",
+                         joint_name.c_str());
+      mapping_ok = false;
+      break;
+    }
+    int idx_js = std::distance(jointState.name.begin(), it);
+    if (idx_js >= static_cast<int>(jointState.position.size())) {
+      ROS_ERROR_THROTTLE(1.0,
+                         "computeVerticalImpedanceTorques: joint '%s' has no position entry.",
+                         joint_name.c_str());
+      mapping_ok = false;
+      break;
+    }
+    q[i] = jointState.position[idx_js];
+  }
+
+  if (!mapping_ok) {
+    // Leave torques_out as zeros if we can't build a consistent q.
+    return;
+  }
+
+  // --- 2) Build Vec34 feetForceCmd with vertical commands in stance legs only ---
+  Vec34 feetForceCmd;
+  feetForceCmd.setZero();
+
+  for (int leg = 0; leg < 4; ++leg) {
+    // Only apply impedance for stance legs (FSM from phaseStateMachine)
+    if (leg_phase_[leg] != LegPhase::kStance) {
+      continue;
+    }
+
+    // Measured vertical force for this leg from contact sensors
+    double Fz_meas = footForce[leg].wrench.force.z;
+
+    // Simple force regulation around imp_Fz_ref_
+    double Fz_err = imp_Fz_ref_ - Fz_meas;
+    double Fz_cmd = imp_F_gain_ * Fz_err;  // [N]
+
+    // Fill z component (row 2) of the feetForceCmd for this leg.
+    // Vec34 is used in getQ/getQd with position.col(j)(0/1/2) = x/y/z,
+    // so we use the same convention here: row 2 = z.
+    feetForceCmd(2, leg) = Fz_cmd;
+  }
+
+  // --- 3) Let Unitree model compute τ = J^T F for all legs at once ---
+  Vec12 tau = robotModel_.getTau(q, feetForceCmd);
+
+  // --- 4) Copy into torques_out with saturation for safety ---
+  for (int i = 0; i < 12; ++i) {
+    double t = tau[i];
+    if (t > imp_tau_max_)  t = imp_tau_max_;
+    if (t < -imp_tau_max_) t = -imp_tau_max_;
+    torques_out[i] = t;
+  }
+}
+
+
 
 trajectory_msgs::JointTrajectory BodyController::getJointTrajectory( const geometry_msgs::Twist &twist,
                                                                      const sensor_msgs::JointState &jointState,
@@ -22,12 +114,22 @@ trajectory_msgs::JointTrajectory BodyController::getJointTrajectory( const geome
   trajectory_msgs::JointTrajectory trajMsg;
   trajMsg.header.frame_id = "base";
   trajMsg.header.stamp = ros::Time::now();
-  trajMsg.joint_names = {"FR_hip_joint",   "FR_thigh_joint", "FR_calf_joint",  "FL_hip_joint",
-                         "FL_thigh_joint", "FL_calf_joint",  "RR_hip_joint",   "RR_thigh_joint",
-                         "RR_calf_joint",  "RL_hip_joint",   "RL_thigh_joint", "RL_calf_joint"};
+  trajMsg.joint_names = {
+    "FL_hip_joint", "FL_thigh_joint", "FL_calf_joint",
+    "FR_hip_joint", "FR_thigh_joint", "FR_calf_joint",
+    "RL_hip_joint", "RL_thigh_joint", "RL_calf_joint",
+    "RR_hip_joint", "RR_thigh_joint", "RR_calf_joint"
+};
+
 
   auto footPosVel = this->getFoot(twist, jointState, footForce);
   trajMsg.points.reserve(footPosVel[0].swingProfile.poses.size());
+
+  // --- Compute vertical impedance torques for this cycle ---
+  std::array<double, 12> impedance_torques;
+  computeVerticalImpedanceTorques(jointState, footForce, impedance_torques);
+
+
   for (int i = 0; i < footPosVel[0].swingProfile.poses.size(); ++i) {
     Vec34 position;
     Vec34 velocity;
@@ -53,6 +155,9 @@ trajectory_msgs::JointTrajectory BodyController::getJointTrajectory( const geome
     point.time_from_start =
         footPosVel[0].swingProfile.poses[i].header.stamp - footPosVel[0].swingProfile.poses.front().header.stamp;
     // Copy data from matrix to vector for messaging
+
+
+
     point.positions = std::vector<double>(jointPositions.data(),
                                           jointPositions.data() + jointPositions.rows() * jointPositions.cols());
     if (!velocityProfile_.empty()) {
@@ -60,6 +165,17 @@ trajectory_msgs::JointTrajectory BodyController::getJointTrajectory( const geome
       jointVel = jointVel.unaryExpr([](double x) { return std::isnan(x) ? 0 : x; });
       point.velocities = std::vector<double>(jointVel.data(), jointVel.data() + jointVel.rows() * jointVel.cols());
     }
+
+    // NEW: fill effort
+    point.effort.resize(jointState.name.size());
+    for (std::size_t j = 0; j < jointState.name.size(); ++j) {
+      if (j < impedance_torques.size()) {
+        point.effort[j] = impedance_torques[j];
+      } else {
+        point.effort[j] = 0.0;
+      }
+    }
+
     trajMsg.points.push_back(point);
   }
   return trajMsg;
@@ -241,17 +357,56 @@ std::array<double, 4> BodyController::phaseStateMachine(double phase, BodyContro
     break;
   }
   }
+
+      // --- STEP 1 (revised): contact-based early touchdown ONLY ---
+  for (int leg = 0; leg < 4; ++leg) {
+
+    double Fz = footForce[leg].wrench.force.z;
+
+    // contact only when force is clearly non-zero
+    bool contact = (Fz > contact_force_threshold_);
+    leg_contact_[leg] = contact;
+
+    // nominal swing = phase > 0.5, stance = phase <= 0.5 (given your current gaits)
+    bool nominalSwing  = (footPhase[leg] > 0.5);
+    bool nominalStance = !nominalSwing;
+
+    switch (leg_phase_[leg]) {
+
+    case LegPhase::kSwing:
+      // Swing -> Stance: only if we are in nominal swing AND get a solid contact
+      if (nominalSwing && contact) {
+        leg_phase_[leg] = LegPhase::kStance;
+
+        // instead of jumping all the way back to 0,
+        // keep phase in a small stance-ish region to avoid big discontinuities
+        if (footPhase[leg] > 0.6) {
+          footPhase[leg] = 0.6;   // small snap
+        }
+      }
+      break;
+
+    case LegPhase::kStance:
+      // For now: DO NOT use contact to start swing.
+      // Let the original phase timing handle stance -> swing
+      // (prevents choppy early liftoff).
+      break;
+    }
+  }
+
   return footPhase;
 }
+
 
 trajectory_msgs::JointTrajectory BodyController::getStandTrajectory(const std::vector<double> &targetPos,
                                                                     const sensor_msgs::JointState &jointState) {
   trajectory_msgs::JointTrajectory trajMsg;
   trajMsg.header.frame_id = "base";
   trajMsg.header.stamp = ros::Time::now();
-  trajMsg.joint_names = {"FR_hip_joint",   "FR_thigh_joint", "FR_calf_joint",  "FL_hip_joint",
-                         "FL_thigh_joint", "FL_calf_joint",  "RR_hip_joint",   "RR_thigh_joint",
-                         "RR_calf_joint",  "RL_hip_joint",   "RL_thigh_joint", "RL_calf_joint"};
+  trajMsg.joint_names = {"FL_hip_joint", "FL_thigh_joint", "FL_calf_joint",
+    "FR_hip_joint", "FR_thigh_joint", "FR_calf_joint",
+    "RL_hip_joint", "RL_thigh_joint", "RL_calf_joint",
+    "RR_hip_joint", "RR_thigh_joint", "RR_calf_joint"};
 
   double duration = 5.0;
   for (int i = 0; i < 100; ++i) {
@@ -286,8 +441,9 @@ trajectory_msgs::JointTrajectory BodyController::getEmptyTrajectory() {
   trajectory_msgs::JointTrajectory trajMsg;
   trajMsg.header.frame_id = "base";
   trajMsg.header.stamp = ros::Time::now();
-  trajMsg.joint_names = {"FR_hip_joint",   "FR_thigh_joint", "FR_calf_joint",  "FL_hip_joint",
-                         "FL_thigh_joint", "FL_calf_joint",  "RR_hip_joint",   "RR_thigh_joint",
-                         "RR_calf_joint",  "RL_hip_joint",   "RL_thigh_joint", "RL_calf_joint"};
+  trajMsg.joint_names = {"FL_hip_joint", "FL_thigh_joint", "FL_calf_joint",
+    "FR_hip_joint", "FR_thigh_joint", "FR_calf_joint",
+    "RL_hip_joint", "RL_thigh_joint", "RL_calf_joint",
+    "RR_hip_joint", "RR_thigh_joint", "RR_calf_joint"};
   return trajMsg;
 }
