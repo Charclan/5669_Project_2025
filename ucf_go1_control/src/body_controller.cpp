@@ -2,7 +2,6 @@
 #include "ros/ros.h"
 #include <algorithm>
 #include <cmath>
-#include "message/LowlevelState.h"
 using namespace ucf;
 
 // TODO get these from unitree constants
@@ -16,40 +15,8 @@ BodyController::BodyController(QuadrupedRobot &robotModel, Gait gait, nav_msgs::
     : robotModel_(robotModel), gait_(gait), swingProfile_(swingProfile), currentPhase_(0.0),
       velocityProfile_(velocityProfile), loop_rate_(loop_rate) {}
 
-namespace {
-double stanceWeightFromPhase(double phase) {
-  // phase in [0,1), stance is [0,0.5)
-  const double transition = 0.10; // 10% of phase for fade in/out
-
-  if (phase < 0.0) phase = 0.0;
-  if (phase >= 1.0) phase = std::fmod(phase, 1.0);
-
-  if (phase >= 0.5) {
-    // swing phase: no stance impedance
-    return 0.0;
-  }
-
-  // stance phase: smooth fade in/out
-  if (phase < transition) {
-    // early stance: 0 -> 1
-    return phase / transition;
-  } else if (phase > (0.5 - transition)) {
-    // late stance: 1 -> 0
-    return (0.5 - phase) / transition;
-  } else {
-    // mid stance: full impedance
-    return 1.0;
-  }
-}
-} // anonymous namespace
-
-
-
-
-trajectory_msgs::JointTrajectory BodyController::getJointTrajectory( const geometry_msgs::Twist &twist,
-                                                                     const sensor_msgs::JointState &jointState,
-                                                                     const geometry_msgs::WrenchStamped footForce[4],
-                                                                     LowlevelState &lowState) {
+trajectory_msgs::JointTrajectory BodyController::getJointTrajectory(const geometry_msgs::Twist &twist,
+                                                                    const sensor_msgs::JointState &jointState) {
 
   trajectory_msgs::JointTrajectory trajMsg;
   trajMsg.header.frame_id = "base";
@@ -58,7 +25,7 @@ trajectory_msgs::JointTrajectory BodyController::getJointTrajectory( const geome
                          "FL_thigh_joint", "FL_calf_joint",  "RR_hip_joint",   "RR_thigh_joint",
                          "RR_calf_joint",  "RL_hip_joint",   "RL_thigh_joint", "RL_calf_joint"};
 
-  auto footPosVel = this->getFoot(twist, jointState, footForce);
+  auto footPosVel = this->getFoot(twist, jointState);
   trajMsg.points.reserve(footPosVel[0].swingProfile.poses.size());
   for (int i = 0; i < footPosVel[0].swingProfile.poses.size(); ++i) {
     Vec34 position;
@@ -76,36 +43,6 @@ trajectory_msgs::JointTrajectory BodyController::getJointTrajectory( const geome
     }
     // Do inverse kinematics over all feet positions obtaining 12 joint positions
     auto jointPositions = robotModel_.getQ(position, FrameType::BODY);
-    // Compute Cartesian impedance torques (τ = JᵀF)
-    Eigen::Matrix<double, 12, 1> jointTorques;
-    jointTorques.setZero();
-
-    // Gains (can be tuned per-leg if needed)
-    double Kp = 110.0;  // N/m
-    double Kd = 18.0;   // Ns/m
-
-    for (int leg = 0; leg < 4; ++leg) {
-      Vec3 p_des = position.col(leg);
-      Vec3 v_des = velocity.col(leg);
-
-      Vec3 p_now = robotModel_.getFootPosition(lowState, leg, FrameType::BODY);
-      Vec3 v_now = robotModel_.getFootVelocity(lowState, leg);
-      Mat3 J     = robotModel_.getJaco(lowState, leg);
-
-      // Smooth phase-based stance weight in [0,1]
-      double w = stanceWeightFromPhase(footPhase_[leg]);
-
-      Vec3 F_leg = Kp * (p_des - p_now) + Kd * (v_des - v_now);
-      F_leg *= w;  // fade forces in/out
-
-      jointTorques.segment<3>(leg * 3) = J.transpose() * F_leg;
-    }
-
-
-
-
-
-
     // Drop nan-values to avoid simulation crashes. It would probably be better to
     // handle this properly so joints don't jump around if getQ fails.
     jointPositions = jointPositions.unaryExpr([](double x) { return std::isnan(x) ? 0 : x; });
@@ -122,17 +59,13 @@ trajectory_msgs::JointTrajectory BodyController::getJointTrajectory( const geome
       jointVel = jointVel.unaryExpr([](double x) { return std::isnan(x) ? 0 : x; });
       point.velocities = std::vector<double>(jointVel.data(), jointVel.data() + jointVel.rows() * jointVel.cols());
     }
-    point.effort = std::vector<double>(jointTorques.data(),
-                                    jointTorques.data() + jointTorques.size());
-
     trajMsg.points.push_back(point);
   }
   return trajMsg;
 }
 
 std::array<BodyController::PositionVelocity, 4> BodyController::getFoot(const geometry_msgs::Twist &twist,
-                                                                        const sensor_msgs::JointState &jointState,
-                                                                        const geometry_msgs::WrenchStamped footForce[4]) {
+                                                                        const sensor_msgs::JointState &jointState) {
 
   std::array<BodyController::PositionVelocity, 4> footPaths;
 
@@ -152,7 +85,7 @@ std::array<BodyController::PositionVelocity, 4> BodyController::getFoot(const ge
   double xs = sqrt(s);           // Distance scale
   double duration = 1 / sqrt(s); // Time scale
 
-  footPhase_ = phaseStateMachine(currentPhase_, gait_, twist.angular, footForce);
+  footPhase_ = phaseStateMachine(currentPhase_, gait_, twist.angular);
   auto current_ts = ros::Time::now();
 
   const int kLookaheadSteps = 100;
@@ -236,15 +169,7 @@ double BodyController::scalePhase(double phase) {
 }
 
 std::array<double, 4> BodyController::phaseStateMachine(double phase, BodyController::Gait gait,
-                                                        geometry_msgs::Vector3 comAngle,
-                                                        const geometry_msgs::WrenchStamped footForce[4]) {
-   // Example: just print for now (like in the branch)
-  printf("\nFL: %lf FR:%lf RL:%lf RR:%lf\n",
-         footForce[0].wrench.force.z,
-         footForce[1].wrench.force.z,
-         footForce[2].wrench.force.z,
-         footForce[3].wrench.force.z);
-
+                                                        geometry_msgs::Vector3 comAngle) {
   std::array<double, 4> footPhase;
   switch (gait) {
   case BodyController::Gait::kPassive: {
