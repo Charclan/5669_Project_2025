@@ -224,10 +224,35 @@ std::array<double, 4> BodyController::phaseStateMachine(double phase, BodyContro
     break;
   }
   case BodyController::Gait::kGallop: {
+    // Modified gallop with more overlap and COM compensation for stability
+    // Adjusted phase offsets to reduce aerial time and increase ground contact overlap
     footPhase[kLegFL] = fmod(phase + 0.0, 1.0);
-    footPhase[kLegFR] = fmod(phase + 0.1, 1.0);
-    footPhase[kLegRL] = fmod(phase + 0.6, 1.0);
-    footPhase[kLegRR] = fmod(phase + 0.5, 1.0);
+    footPhase[kLegFR] = fmod(phase + 0.15, 1.0);  // Increased from 0.1 for more front leg separation
+    footPhase[kLegRL] = fmod(phase + 0.55, 1.0);  // Adjusted for better overlap with front
+    footPhase[kLegRR] = fmod(phase + 0.45, 1.0);  // Adjusted from 0.5 for more rear leg separation
+
+    // COM compensation based on gait phase
+    // Phase 0.0-0.25: Front legs swinging, lean backward to rear legs
+    // Phase 0.25-0.5: Transition, level COM
+    // Phase 0.5-0.75: Rear legs swinging, lean forward to front legs
+    // Phase 0.75-1.0: Transition, level COM
+    if (phase < 0.25) {
+      // Front legs in swing - shift COM backward
+      comAngle.x = 0.0;
+      comAngle.y = -0.15;  // Pitch backward
+    } else if (phase < 0.45) {
+      // Transition - level out
+      comAngle.x = 0.0;
+      comAngle.y = 0.0;
+    } else if (phase < 0.70) {
+      // Rear legs in swing - shift COM forward
+      comAngle.x = 0.0;
+      comAngle.y = 0.15;   // Pitch forward
+    } else {
+      // Transition - level out
+      comAngle.x = 0.0;
+      comAngle.y = 0.0;
+    }
     break;
   }
   }
